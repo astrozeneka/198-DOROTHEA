@@ -93,20 +93,33 @@ tf_activity <- viper(
   pleiotropy = TRUE,
   verbose    = TRUE
 )
+saveRDS(tf_activity, "rdata/tf_activity.rds")
+
+# ── Reload from here to skip re-running VIPER ─────────────────────────────────
+# tf_activity <- readRDS("rdata/tf_activity.rds")
 
 # ── Step 2: Scale TF Activity Matrix ──────────────────────────────────────────
 # Z-score each TF across cells (equivalent to ScaleData), used for differential testing
 tf_activity_scaled <- t(scale(t(tf_activity)))
 
 # ── Step 3: Differential TF Activity — Responders vs. Non-Responders ──────────
-# Pull response group labels directly from Seurat metadata (no new assay needed)
-# Adjust "response_group" to match your metadata column name
-group_col <- "response_group"
-cell_groups <- larc_seurat@meta.data[[group_col]]
-names(cell_groups) <- rownames(larc_seurat@meta.data)
+# Map sample_id → response via clinical data (same source as 401_volcano_with_annotated.R)
+clinical     <- read.csv(
+  "../125-WHOLE-SLIDE-ANALYSIS/density_with_cd/Clinical_data.csv",
+  stringsAsFactors = FALSE
+)
+response_map <- setNames(clinical$pCR, clinical$SampleId)
 
-responder_cells     <- names(cell_groups)[cell_groups == "responder"]
-non_responder_cells <- names(cell_groups)[cell_groups == "non_responder"]
+cell_meta   <- larc_seurat@meta.data
+cell_groups <- response_map[cell_meta$sample_id]
+names(cell_groups) <- rownames(cell_meta)
+
+unmatched <- names(cell_groups)[is.na(cell_groups)]
+if (length(unmatched) > 0)
+  message("Cells with no clinical match (excluded): ", length(unmatched))
+
+responder_cells     <- names(cell_groups)[cell_groups == "Responder"]
+non_responder_cells <- names(cell_groups)[cell_groups == "Non-responder"]
 
 mat_resp    <- tf_activity_scaled[, responder_cells,     drop = FALSE]
 mat_nonresp <- tf_activity_scaled[, non_responder_cells, drop = FALSE]
