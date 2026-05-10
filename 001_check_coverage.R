@@ -118,8 +118,11 @@ unmatched <- names(cell_groups)[is.na(cell_groups)]
 if (length(unmatched) > 0)
   message("Cells with no clinical match (excluded): ", length(unmatched))
 
-responder_cells     <- names(cell_groups)[cell_groups == "Responder"]
-non_responder_cells <- names(cell_groups)[cell_groups == "Non-responder"]
+responder_cells     <- intersect(names(cell_groups)[cell_groups == "Responder"],     colnames(tf_activity_scaled))
+non_responder_cells <- intersect(names(cell_groups)[cell_groups == "Non-responder"], colnames(tf_activity_scaled))
+
+cat("Responder cells:",     length(responder_cells), "\n")
+cat("Non-responder cells:", length(non_responder_cells), "\n")
 
 mat_resp    <- tf_activity_scaled[, responder_cells,     drop = FALSE]
 mat_nonresp <- tf_activity_scaled[, non_responder_cells, drop = FALSE]
@@ -154,7 +157,7 @@ tf_diff$neg_log10_p <- -log10(tf_diff$p_val_adj + 1e-300)
 tf_diff$significant  <- tf_diff$p_val_adj < 0.05 & abs(tf_diff$avg_log2FC) > 0.5
 tf_diff$label        <- ifelse(tf_diff$significant, tf_diff$tf, NA)
 
-ggplot(tf_diff, aes(x = avg_log2FC, y = neg_log10_p)) +
+p <- ggplot(tf_diff, aes(x = avg_log2FC, y = neg_log10_p)) +
   geom_point(aes(color = significant), size = 2, alpha = 0.8) +
   scale_color_manual(values = c("grey70", "firebrick")) +
   geom_text_repel(aes(label = label), size = 3, max.overlaps = 20) +
@@ -168,3 +171,5 @@ ggplot(tf_diff, aes(x = avg_log2FC, y = neg_log10_p)) +
   ) +
   theme_classic() +
   theme(legend.position = "none")
+
+ggsave("tf_activity_volcano.png", plot = p, width = 8, height = 6, dpi = 300)
